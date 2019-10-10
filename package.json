@@ -1,0 +1,16 @@
+{
+  "name": "repo-analyzer",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "BeeeQueue",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "simple-git": "1.126.0",
+    "ts-node": "8.4.1",
+    "typescript": "3.7.0-dev.20191010"
+  },
+  "scripts": {
+    "dev": "ts-node index.ts"
+  }
+}
