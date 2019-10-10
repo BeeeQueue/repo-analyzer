@@ -50,8 +50,10 @@ export const cloneDirToCache = (dir: string, to: string) => {
 export const checkoutCommit = (commit: string) =>
   run("git", ["checkout", commit])
 
-export const getCommitData = (): CommitData => {
-  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'"])
+export const getCommitData = (cwd: string): CommitData => {
+  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'"], {
+    cwd
+  })
   const match = result.match(/([\w\d]+) ([\w-:+]+) (.+)/)!
 
   return {

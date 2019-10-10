@@ -16,13 +16,13 @@ import { ClocData, ClocResponse, Output } from "@/types"
 
 const clocPath = require.resolve("cloc")
 const cachePath = resolve(homedir(), ".repo-analyzer")
-const repoPath = resolve(cachePath, "repo")
 const outputPath = resolve(cachePath, "output")
 
 let output: Output = []
 let numberOfCommits: number
 
-export const analyzeRepo = (dir: string) => {
+export const analyzeCommitChunk = (dir: string, start: number, end: number) => {
+  const repoPath = resolve(cachePath, `tmp-${start}-${end}`)
   cloneDirToCache(dir, repoPath)
   setCwd(repoPath)
   checkoutCommit("master")
@@ -48,20 +48,20 @@ export const analyzeRepo = (dir: string) => {
   log("100% - Finished!")
 }
 
-const analyzeCommit = (index: number) => {
-  const commitData = getCommitData()
-  const clocData = getClocData()
+const analyzeCommit = (repoPath: string, index: number) => {
+  const commitData = getCommitData(repoPath)
+  const clocData = getClocData(repoPath)
 
   logProgress(commitData.name, index, numberOfCommits)
 
   output = [{ ...commitData, ...clocData }, ...output]
 }
 
-const getClocData = (): ClocData => {
+const getClocData = (cwd: string): ClocData => {
   let result: ClocResponse
 
   try {
-    const output = run(clocPath, ["--vcs=git", "--json"], { cwd: repoPath })
+    const output = run(clocPath, ["--vcs=git", "--json"], { cwd })
     result = JSON.parse(output)
   } catch (err) {
     return { data: null, error: true }

@@ -5,14 +5,58 @@ const box = {
 }
 
 const run = async () => {
-  data = data
-    .filter(obj => !obj.error)
-    .map(d => ({
-      date: d.date,
-      value: d.data.header.n_lines
-    }))
+  data = data.filter(obj => !obj.error)
+  // .map(d => ({
+  //   date: d.date,
+  //   value: d.data.header.n_lines
+  // }))
 
-  const totalLoc = data.map(obj => obj.value).sort((a, b) => b - a)[0]
+  const languages = Array.from(
+    new Set(
+      data.reduce(
+        (array, d) =>
+          array.concat(Object.keys(d.data).filter(k => k !== "header")),
+        []
+      )
+    )
+  )
+
+  data = data.map(d => {
+    const keys = Object.keys(d.data).filter(k => k !== "header" && k !== "SUM")
+
+    return keys.reduce(
+      (obj, key) => {
+        obj[key] = d.data[key].code + d.data[key].blank + d.data[key].comment
+
+        return obj
+      },
+      { date: d.date, total: d.data.header.n_lines }
+    )
+  })
+
+  const randomColor = d3
+    .scaleOrdinal()
+    .domain(languages)
+    .range(d3.schemeSet2)
+
+  const color = key => {
+    switch (key) {
+      case "JavaScript":
+        return "orange"
+      case "TypeScript":
+        return "cornflowerblue"
+      case "Ruby":
+        return "darkred"
+      case "JSON":
+        return "red"
+      default:
+        return randomColor(key)
+    }
+  }
+
+  const stackedData = d3.stack().keys(languages)(data)
+
+  const totalLoc = data.map(obj => obj.total).sort((a, b) => b - a)[0]
   console.log(totalLoc)
 
   const svg = d3
@@ -32,24 +76,24 @@ const run = async () => {
 
   const y = d3
     .scaleLinear()
-    .domain(d3.extent(data, ({ value }) => value))
+    .domain([0, totalLoc])
     .range([box.height, 0])
   svg.append("g").call(d3.axisLeft(y))
 
+  const area = d3
+    .area()
+    .x(d => x(new Date(d.data.date)))
+    .y0(d => y(d[0]))
+    .y1(d => y(d[1]))
+
   svg
+    .selectAll("mylayers")
+    .data(stackedData)
+    .enter()
     .append("path")
-    .attr("fill", "#cce5df")
-    .attr("stroke", "#69b3a2")
-    .attr("stroke-width", 1.5)
-    .datum(data)
-    .attr(
-      "d",
-      d3
-        .area()
-        .x(d => x(new Date(d.date)))
-        .y0(y(0))
-        .y1(d => y(d.value))
-    )
+    .attr("class", d => d.key)
+    .style("fill", d => color(d.key))
+    .attr("d", area)
 }
 
 run()
