@@ -47,11 +47,8 @@ export const cloneDirToCache = (dir: string, to: string) => {
   run("git", ["clone", dir, to])
 }
 
-export const checkoutCommit = (commit: string) => {
+export const checkoutCommit = (commit: string) =>
   run("git", ["checkout", commit])
-
-  console.log(`Checked out ${commit}`)
-}
 
 export const getCommitData = (): CommitData => {
   const result = run("git", ["show", "--quiet", "--format='%H %aI %s'"])

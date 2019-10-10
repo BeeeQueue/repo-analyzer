@@ -1,5 +1,7 @@
 import { homedir } from "os"
 import { resolve } from "path"
+import { writeFileSync } from "fs"
+import log from "log-update"
 
 import {
   checkoutCommit,
@@ -10,7 +12,6 @@ import {
   setCwd
 } from "@/git"
 import { ClocData, ClocResponse, Output } from "@/types"
-import { writeFileSync } from "fs"
 
 const clocPath = require.resolve("cloc")
 const cachePath = resolve(homedir(), ".repo-analyzer")
@@ -18,6 +19,7 @@ const repoPath = resolve(cachePath, "repo")
 const outputPath = resolve(cachePath, "output")
 
 let output: Output = []
+let numberOfCommits: number
 
 export const analyzeRepo = (dir: string) => {
   cloneDirToCache(dir, repoPath)
@@ -25,19 +27,23 @@ export const analyzeRepo = (dir: string) => {
   checkoutCommit("master")
 
   const lastCommitData = getCommitData()
-  const numberOfCommits = getNumberOfCommits()
+  numberOfCommits = getNumberOfCommits()
 
   for (let i = 0; i < numberOfCommits; i++) {
     checkoutCommit(`${lastCommitData.sha}~${i}`)
 
-    analyzeCommit()
+    analyzeCommit(i)
     writeFileSync(resolve(outputPath, "data.json"), JSON.stringify(output))
   }
+
+  log("100% - Finished!")
 }
 
-const analyzeCommit = () => {
+const analyzeCommit = (index: number) => {
   const commitData = getCommitData()
   const clocData = getClocData()
+
+  logProgress(commitData.name, index, numberOfCommits)
 
   output = [{ ...commitData, ...clocData }, ...output]
 }
@@ -53,4 +59,10 @@ const getClocData = (): ClocData => {
   }
 
   return { data: result, error: false }
+}
+
+const logProgress = (commitName: string, progress: number, total: number) => {
+  const progressPercent = progress / total
+
+  log(`${Math.ceil(progressPercent * 100)}% - Parsing "${commitName}"...`)
 }
