@@ -1,30 +1,35 @@
 {
   "name": "repo-analyzer",
   "version": "1.0.0",
-  "main": "index.js",
   "author": "BeeeQueue",
-  "license": "MIT",
-  "private": true,
+  "dependencies": {
+    "commander": "3.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "12.7.12",
+    "husky": "3.0.8",
+    "lint-staged": "9.4.2",
+    "prettier": "1.18.2",
+    "simple-git": "1.126.0",
+    "ts-node": "8.4.1",
+    "tsconfig-paths": "3.9.0",
+    "typescript": "3.7.0-dev.20191010"
+  },
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged"
     }
   },
+  "license": "MIT",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,scss,json}": [
       "prettier --write",
       "git add"
     ]
   },
-  "devDependencies": {
-    "husky": "3.0.8",
-    "lint-staged": "9.4.2",
-    "prettier": "1.18.2",
-    "simple-git": "1.126.0",
-    "ts-node": "8.4.1",
-    "typescript": "3.7.0-dev.20191010"
-  },
+  "main": "index.js",
+  "private": true,
   "scripts": {
-    "dev": "ts-node index.ts"
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts"
   }
 }
