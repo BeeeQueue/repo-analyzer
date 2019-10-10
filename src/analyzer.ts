@@ -1,6 +1,7 @@
 import { homedir } from "os"
 import { resolve } from "path"
-import { writeFileSync } from "fs"
+import { copyFileSync, writeFileSync } from "fs"
+import open from "open"
 import log from "log-update"
 
 import {
@@ -33,8 +34,16 @@ export const analyzeRepo = (dir: string) => {
     checkoutCommit(`${lastCommitData.sha}~${i}`)
 
     analyzeCommit(i)
-    writeFileSync(resolve(outputPath, "data.json"), JSON.stringify(output))
+
+    writeFileSync(
+      resolve(outputPath, "data.js"),
+      `let data = ${JSON.stringify(output)}`
+    )
   }
+
+  copyFile("index.html")
+  copyFile("script.js")
+  open(resolve(outputPath, "index.html"))
 
   log("100% - Finished!")
 }
@@ -60,6 +69,12 @@ const getClocData = (): ClocData => {
 
   return { data: result, error: false }
 }
+
+const copyFile = (fileName: string) =>
+  copyFileSync(
+    resolve(__dirname, "..", "template", fileName),
+    resolve(outputPath, fileName)
+  )
 
 const logProgress = (commitName: string, progress: number, total: number) => {
   const progressPercent = progress / total
