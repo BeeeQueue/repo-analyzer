@@ -5,7 +5,21 @@
   "author": "BeeeQueue",
   "license": "MIT",
   "private": true,
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,scss,json}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
   "devDependencies": {
+    "husky": "3.0.8",
+    "lint-staged": "9.4.2",
+    "prettier": "1.18.2",
     "simple-git": "1.126.0",
     "ts-node": "8.4.1",
     "typescript": "3.7.0-dev.20191010"
