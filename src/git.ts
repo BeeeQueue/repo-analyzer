@@ -1,11 +1,11 @@
 import { spawnSync } from "child_process"
 import { resolve } from "path"
 import debug from "debug"
-import { CommitData } from "@/types"
+import { CommitData, LOC } from "@/types"
 
 const log = {
   info: debug("analyzer:info"),
-  debug: debug("analyzer:debug")
+  debug: debug("analyzer:debug"),
 }
 let cwd = resolve(".")
 
@@ -18,7 +18,7 @@ export const run = (
   args: string[],
   options: { cwd: string } = { cwd }
 ) => {
-  log.debug(`\n${command} ${args}`)
+  log.debug(`\n${command} ${args.join(" ")}`)
 
   const result = spawnSync(command, args, options)
 
@@ -36,10 +36,16 @@ export const run = (
     throw new Error(output)
   }
 
-  log.debug(`${output}`)
+  log.debug(`"${output}"`)
 
   return output
 }
+
+export const getFirstCommit = () =>
+  run("git", ["rev-list", "--max-parents=0", "HEAD"])
+
+export const getHashAfter = (index: number) =>
+  run("git", ["rev-list", "--max-count=1", `--skip=${index}`, "HEAD"])
 
 export const cloneDirToCache = (dir: string, to: string) => {
   run("rm", ["-rf", to])
@@ -50,19 +56,18 @@ export const cloneDirToCache = (dir: string, to: string) => {
 export const checkoutCommit = (commit: string) =>
   run("git", ["checkout", commit])
 
-export const getCommitData = (): CommitData => {
-  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'"])
+export const getCommitData = (sha: string): CommitData => {
+  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'", sha])
   const match = result.match(/([\w\d]+) ([\w-:+]+) (.+)/)!
 
   return {
     sha: match[1],
     date: new Date(match[2]),
-    name: match[3]
+    name: match[3],
   }
 }
 
-export const getFilesOfCommit = (commit: string): string[] =>
-  run("git", ["ls-tree", "--name-only", "-r", commit]).split("\n")
+export const getLoc = (lastLoc: LOC): LOC => {}
 
 export const getNumberOfCommits = (): number =>
   Number(run("git", ["rev-list", "--count", "master"]))
