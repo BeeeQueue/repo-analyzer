@@ -622,6 +622,18 @@ json5@^1.0.1:
   dependencies:
     minimist "^1.2.0"
 
+lang-map@0.4.0:
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/lang-map/-/lang-map-0.4.0.tgz#de38b07783a0a7db0bc082c6c5ff69c56e354ab5"
+  integrity sha1-3jiwd4Ogp9sLwILGxf9pxW41SrU=
+  dependencies:
+    language-map "^1.1.0"
+
+language-map@^1.1.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/language-map/-/language-map-1.4.0.tgz#d41e51100274df587865819af6837b7dfbdfb220"
+  integrity sha512-5XHMCqKQ/14VXwJTKZX7MZwsVyTrR0bwCsRBwrBq3nP4w7liMJiR0ixXgI29EF/T1/U6be8cYK2y0ibWW9kx2w==
+
 lines-and-columns@^1.1.6:
   version "1.1.6"
   resolved "https://registry.yarnpkg.com/lines-and-columns/-/lines-and-columns-1.1.6.tgz#1c00c743b433cd0a4e80758f7b64a57440d9ff00"

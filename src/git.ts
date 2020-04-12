@@ -1,7 +1,7 @@
 import { spawnSync } from "child_process"
 import { resolve } from "path"
 import debug from "debug"
-import { CommitData, LOC } from "@/types"
+import { Commit, Data, Diff } from "@/types"
 
 const log = {
   info: debug("analyzer:info"),
@@ -41,33 +41,59 @@ export const run = (
   return output
 }
 
-export const getFirstCommit = () =>
-  run("git", ["rev-list", "--max-parents=0", "HEAD"])
+export const getFirstCommit = () => ({
+  hash: run("git", ["rev-list", "--max-parents=0", "HEAD"]),
+  index: getNumberOfCommits() - 1,
+})
 
-export const getHashAfter = (index: number) =>
-  run("git", ["rev-list", "--max-count=1", `--skip=${index}`, "HEAD"])
+export const getCommitAfter = (index: number) => ({
+  index: index - 1,
+  hash: run("git", ["rev-list", "--max-count=1", `--skip=${index}`, "HEAD"]),
+})
 
-export const cloneDirToCache = (dir: string, to: string) => {
-  run("rm", ["-rf", to])
+const diffRegex = /(\d+)\s*(\d+)\s*(.*)/
+export const getDiff = (current: Commit, previous: Commit): Diff => {
+  const result = run("git", [
+    "diff",
+    "--minimal",
+    "--numstat",
+    previous.hash,
+    current.hash,
+  ])
 
-  run("git", ["clone", dir, to])
+  return result
+    .split("\n")
+    .map((diffStr) => diffRegex.exec(diffStr))
+    .filter((match): match is RegExpExecArray => match != null)
+    .reduce(
+      (accum, [, added, deleted, filename]) => ({
+        ...accum,
+        [filename]: Number(added) - Number(deleted),
+      }),
+      {} as Diff
+    )
 }
 
-export const checkoutCommit = (commit: string) =>
-  run("git", ["checkout", commit])
-
-export const getCommitData = (sha: string): CommitData => {
-  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'", sha])
-  const match = result.match(/([\w\d]+) ([\w-:+]+) (.+)/)!
+export const getCommitData = (sha: string): Omit<Data, "diff" | "totals"> => {
+  const result = run("git", [
+    "show",
+    "--quiet",
+    "--format='%an %ae%n%ad%n%s'",
+    sha,
+  ])
+  const [authorName, authorEmail, dateStr, message] = result.match(
+    /(.+) (.+)\n(.+)\n(.+)/
+  )!
 
   return {
-    sha: match[1],
-    date: new Date(match[2]),
-    name: match[3],
+    author: {
+      name: authorName,
+      email: authorEmail,
+    },
+    date: new Date(dateStr),
+    message,
   }
 }
-
-export const getLoc = (lastLoc: LOC): LOC => {}
 
 export const getNumberOfCommits = (): number =>
   Number(run("git", ["rev-list", "--count", "master"]))
