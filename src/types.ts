@@ -12,6 +12,7 @@ export type Diff = {
 }
 
 export type Data = {
+  hash: string
   message: string
   date: Date
   author: {

@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs"
 import { resolve } from "path"
 import log from "log-update"
 import { languages } from "lang-map"
@@ -10,9 +11,12 @@ import {
   setCwd,
   getCommitData,
 } from "@/git"
-import { Commit, Data, Totals } from "@/types"
+import { Commit, Data, Diff, Totals } from "@/types"
 
 const outputPath = resolve(__dirname, "..", "template")
+
+const configFileRegex = /^\.\w+$/
+const fileRegex = /^\w+$/
 
 export class RepoAnalyzer {
   private readonly dir: string
@@ -25,7 +29,6 @@ export class RepoAnalyzer {
 
   private previousCommit: Commit
 
-  // private totals: Totals = {}
   private data: Data[] = []
 
   constructor(dir: string) {
@@ -47,10 +50,7 @@ export class RepoAnalyzer {
   public run() {
     console.log(`Analyzing ${this.dir} (${this.numberOfCommits} commits)...`)
 
-    while (
-      this.currentIndex > 0 &&
-      this.currentIndex > this.numberOfCommits - 3
-    ) {
+    while (this.currentIndex > 0) {
       log(
         `${this.numberOfCommits - this.currentIndex} / ${this.numberOfCommits}`
       )
@@ -59,21 +59,49 @@ export class RepoAnalyzer {
 
       this.goToNextCommit()
     }
+
+    writeFileSync(
+      resolve(outputPath, "data.js"),
+      `const DATA = ${JSON.stringify(this.data)}`
+    )
   }
 
   private analyzeCommit() {
     const baseData = getCommitData(this.currentCommit.hash)
     const diff = getDiff(this.currentCommit, this.previousCommit)
+    const totals = this.getTotals(diff)
 
     this.data.push({
+      hash: this.currentCommit.hash,
       ...baseData,
       diff,
+      totals,
     })
+  }
+
+  private getTotals(diff: Diff): Totals {
+    return Object.entries(diff).reduce((accum, [filename, diffNum]) => {
+      const language = RepoAnalyzer.getLanguage(filename)
+
+      return {
+        ...accum,
+        [language]: (accum[language] ?? 0) + diffNum,
+      }
+    }, this.data[this.data.length - 1]?.totals ?? {})
   }
 
   private goToNextCommit() {
     this.previousCommit = this.currentCommit
     this.currentIndex--
     this.currentCommit = getCommitAfter(this.previousCommit.index)
+  }
+
+  private static getLanguage(filename: string) {
+    if (configFileRegex.test(filename)) return "dotfile"
+    if (fileRegex.test(filename)) return "file"
+
+    const language = languages(filename.slice(filename.lastIndexOf(".")))
+
+    return Array.isArray(language) ? language[0] : language
   }
 }

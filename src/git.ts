@@ -74,18 +74,20 @@ export const getDiff = (current: Commit, previous: Commit): Diff => {
     )
 }
 
-export const getCommitData = (sha: string): Omit<Data, "diff" | "totals"> => {
+export const getCommitData = (hash: string): Omit<Data, "diff" | "totals"> => {
   const result = run("git", [
     "show",
     "--quiet",
-    "--format='%an %ae%n%ad%n%s'",
-    sha,
+    "--format=%an%n%ae%n%ad%n%s",
+    hash,
   ])
-  const [authorName, authorEmail, dateStr, message] = result.match(
-    /(.+) (.+)\n(.+)\n(.+)/
+
+  const [, authorName, authorEmail, dateStr, message] = result.match(
+    /([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)/
   )!
 
   return {
+    hash,
     author: {
       name: authorName,
       email: authorEmail,
