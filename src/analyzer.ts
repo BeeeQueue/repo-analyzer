@@ -1,83 +1,107 @@
-import { homedir } from "os"
+import { writeFileSync } from "fs"
 import { resolve } from "path"
-import { copyFileSync, writeFileSync } from "fs"
-import open from "open"
 import log from "log-update"
+import { languages } from "lang-map"
 
 import {
-  checkoutCommit,
-  cloneDirToCache,
-  getCommitData,
+  getDiff,
+  getFirstCommit,
+  getCommitAfter,
   getNumberOfCommits,
-  run,
-  setCwd
+  setCwd,
+  getCommitData,
 } from "@/git"
-import { ClocData, ClocResponse, Output } from "@/types"
+import { Commit, Data, Diff, Totals } from "@/types"
 
-const clocPath = require.resolve("cloc")
-const cachePath = resolve(homedir(), ".repo-analyzer")
-const repoPath = resolve(cachePath, "repo")
-const outputPath = resolve(cachePath, "output")
+const outputPath = resolve(__dirname, "..", "template")
 
-let output: Output = []
-let numberOfCommits: number
+const configFileRegex = /^\.\w+$/
+const fileRegex = /^\w+$/
 
-export const analyzeRepo = (dir: string) => {
-  cloneDirToCache(dir, repoPath)
-  setCwd(repoPath)
-  checkoutCommit("master")
+export class RepoAnalyzer {
+  private readonly dir: string
+  private readonly numberOfCommits: number
 
-  const lastCommitData = getCommitData()
-  numberOfCommits = getNumberOfCommits()
+  private readonly firstCommit: Commit
 
-  for (let i = 0; i < numberOfCommits; i++) {
-    checkoutCommit(`${lastCommitData.sha}~${i}`)
+  private currentCommit: Commit
+  private currentIndex: number
 
-    analyzeCommit(i)
+  private previousCommit: Commit
+
+  private data: Data[] = []
+
+  constructor(dir: string) {
+    setCwd(dir)
+
+    this.dir = dir
+    this.firstCommit = getFirstCommit()
+    this.numberOfCommits = getNumberOfCommits()
+
+    this.currentCommit = this.firstCommit
+    this.currentIndex = this.numberOfCommits - 1
+
+    this.previousCommit = {
+      hash: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+      index: this.numberOfCommits,
+    }
+  }
+
+  public run() {
+    console.log(`Analyzing ${this.dir} (${this.numberOfCommits} commits)...`)
+
+    while (this.currentIndex > 0) {
+      log(
+        `${this.numberOfCommits - this.currentIndex} / ${this.numberOfCommits}`
+      )
+
+      this.analyzeCommit()
+
+      this.goToNextCommit()
+    }
 
     writeFileSync(
       resolve(outputPath, "data.js"),
-      `let data = ${JSON.stringify(output)}`
+      `const DATA = ${JSON.stringify(this.data)}`
     )
   }
 
-  copyFile("index.html")
-  copyFile("script.js")
-  open(resolve(outputPath, "index.html"))
+  private analyzeCommit() {
+    const baseData = getCommitData(this.currentCommit.hash)
+    const diff = getDiff(this.currentCommit, this.previousCommit)
+    const totals = this.getTotals(diff)
 
-  log("100% - Finished!")
-}
-
-const analyzeCommit = (index: number) => {
-  const commitData = getCommitData()
-  const clocData = getClocData()
-
-  logProgress(commitData.name, index, numberOfCommits)
-
-  output = [{ ...commitData, ...clocData }, ...output]
-}
-
-const getClocData = (): ClocData => {
-  let result: ClocResponse
-
-  try {
-    const output = run(clocPath, ["--vcs=git", "--json"], { cwd: repoPath })
-    result = JSON.parse(output)
-  } catch (err) {
-    return { data: null, error: true }
+    this.data.push({
+      hash: this.currentCommit.hash,
+      ...baseData,
+      diff,
+      totals,
+    })
   }
 
-  return { data: result, error: false }
-}
+  private getTotals(diff: Diff): Totals {
+    return Object.entries(diff).reduce((accum, [filename, diffNum]) => {
+      const language = RepoAnalyzer.getLanguage(filename)
 
-const copyFile = (fileName: string) =>
-  copyFileSync(
-    resolve(__dirname, "..", "template", fileName),
-    resolve(outputPath, fileName)
-  )
+      return {
+        ...accum,
+        [language]: (accum[language] ?? 0) + diffNum,
+      }
+    }, this.data[this.data.length - 1]?.totals ?? {})
+  }
 
-const logProgress = (commitName: string, progress: number, total: number) => {
-  const progressPercent = progress / total
+  private goToNextCommit() {
+    this.previousCommit = this.currentCommit
+    this.currentIndex--
+    this.currentCommit = getCommitAfter(this.previousCommit.index)
+  }
 
-  log(`${Math.ceil(progressPercent * 100)}% - Parsing "${commitName}"...`)
+  private static getLanguage(filename: string) {
+    if (configFileRegex.test(filename)) return "dotfile"
+    if (fileRegex.test(filename)) return "file"
+
+    const language = languages(filename.slice(filename.lastIndexOf(".")))
+
+    return Array.isArray(language) ? language[0] : language
+  }
 }

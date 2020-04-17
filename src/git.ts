@@ -1,11 +1,11 @@
 import { spawnSync } from "child_process"
 import { resolve } from "path"
 import debug from "debug"
-import { CommitData } from "@/types"
+import { Commit, Data, Diff } from "@/types"
 
 const log = {
   info: debug("analyzer:info"),
-  debug: debug("analyzer:debug")
+  debug: debug("analyzer:debug"),
 }
 let cwd = resolve(".")
 
@@ -18,7 +18,7 @@ export const run = (
   args: string[],
   options: { cwd: string } = { cwd }
 ) => {
-  log.debug(`\n${command} ${args}`)
+  log.debug(`\n${command} ${args.join(" ")}`)
 
   const result = spawnSync(command, args, options)
 
@@ -36,33 +36,66 @@ export const run = (
     throw new Error(output)
   }
 
-  log.debug(`${output}`)
+  log.debug(`"${output}"`)
 
   return output
 }
 
-export const cloneDirToCache = (dir: string, to: string) => {
-  run("rm", ["-rf", to])
+export const getFirstCommit = () => ({
+  hash: run("git", ["rev-list", "--max-parents=0", "HEAD"]),
+  index: getNumberOfCommits() - 1,
+})
 
-  run("git", ["clone", dir, to])
+export const getCommitAfter = (index: number) => ({
+  index: index - 1,
+  hash: run("git", ["rev-list", "--max-count=1", `--skip=${index}`, "HEAD"]),
+})
+
+const diffRegex = /(\d+)\s*(\d+)\s*(.*)/
+export const getDiff = (current: Commit, previous: Commit): Diff => {
+  const result = run("git", [
+    "diff",
+    "--minimal",
+    "--numstat",
+    previous.hash,
+    current.hash,
+  ])
+
+  return result
+    .split("\n")
+    .map((diffStr) => diffRegex.exec(diffStr))
+    .filter((match): match is RegExpExecArray => match != null)
+    .reduce(
+      (accum, [, added, deleted, filename]) => ({
+        ...accum,
+        [filename]: Number(added) - Number(deleted),
+      }),
+      {} as Diff
+    )
 }
 
-export const checkoutCommit = (commit: string) =>
-  run("git", ["checkout", commit])
+export const getCommitData = (hash: string): Omit<Data, "diff" | "totals"> => {
+  const result = run("git", [
+    "show",
+    "--quiet",
+    "--format=%an%n%ae%n%ad%n%s",
+    hash,
+  ])
 
-export const getCommitData = (): CommitData => {
-  const result = run("git", ["show", "--quiet", "--format='%H %aI %s'"])
-  const match = result.match(/([\w\d]+) ([\w-:+]+) (.+)/)!
+  const [, authorName, authorEmail, dateStr, message] = result.match(
+    /([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)/
+  )!
 
   return {
-    sha: match[1],
-    date: new Date(match[2]),
-    name: match[3]
+    hash,
+    author: {
+      name: authorName,
+      email: authorEmail,
+    },
+    date: new Date(dateStr),
+    message,
   }
 }
-
-export const getFilesOfCommit = (commit: string): string[] =>
-  run("git", ["ls-tree", "--name-only", "-r", commit]).split("\n")
 
 export const getNumberOfCommits = (): number =>
   Number(run("git", ["rev-list", "--count", "master"]))
